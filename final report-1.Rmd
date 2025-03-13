@@ -1,0 +1,1146 @@
+---
+title: "The Impact of Classroom Type on First-Grade Math Performance: Insights from the STAR Project (STA207 Final Report)"
+author: "Shang Chen"
+date: "13-Mar-2025"
+output:
+  rmdformats::readthedown:
+    default_style: "light"
+    downcute_theme: "default"
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+    code_folding: hide
+css: "mycolor.css"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+```{r warning = FALSE, message= FALSE, include = FALSE}
+library(haven)
+library(ggplot2)
+library(gplots)
+library(dplyr)
+library(knitr)
+library(lme4)
+library(kableExtra)
+library(forcats)
+library(gridExtra)
+library(broom)
+library(car)
+library(ggalluvial)
+library(patchwork)
+library(haven)
+library(ggplot2)
+library(ggalluvial)
+library(alluvial)
+library(viridis)
+data_full <- read_sav("STAR_Students.sav")
+```
+
+# Abstract
+
+This report investigates how classroom type influences math performance in 1st grade using data from Tennessee’s STAR Project. By comparing small classes with regular and regular‐aide classes, the analysis employs ANOVA model and Tukey’s range tests, demonstrating that students in small classes achieve significantly higher math scores in 1st grade, although the positive effect of small class diminishes in later grades. The report also discusses limitations from experimental design methods such as the inflow of new students, suggesting that alternative methods (e.g., Hierarchical Linear Models) may provide a more stable assessment of the same topic. These findings have important policy implications, as they support the value of maintaining small class sizes in early education despite practical constraints.
+
+# Introduction
+
+This study explores how first-grade classroom type affects math
+performance, aiming to determine which class setting yields the best
+results. Given the lasting impact of early education on academic
+success, understanding how class size and structure influence learning
+is crucial. Despite considerable financial investments in public
+education—\$857.3 billion in K-12 spending in 2022 alone, with some
+states spending over \$36,000 per student like New York (NYP,
+2025)—student achievement has not consistently improved, raising
+concerns about how resources are allocated.
+
+By identifying which classroom type works best for math scores, this
+analysis provides useful insights for educators seeking improvements in
+early education. The findings could help shape class size policies and
+resource allocation, making sure that investment in early education
+leads to real academic improvements for students.
+
+# Background
+
+The Student/Teacher Achievement Ratio (STAR) Project was a large-scale,
+randomized experiment conducted in Tennessee to study the effects of
+class size on students' achievements. Launched in 1985, STAR was
+designed to evaluate whether reducing class sizes in early education
+would lead to academic improvements. (Word et al., 1990)
+
+## Target Population
+
+The STAR project focused on students in early education in Tennessee
+public schools, tracking them since kindergartens. 79 schools in 42
+systems across inner city, urban, suburban, and rural areas were
+involved, with students randomly assigned to small classes (with 13-17
+students), regular classes (with 22-25 students), or regular classes
+with full-time teacher aide.
+
+## Sampling Mechanism
+
+To avoid any potential bias, the project used a randomized selection
+mechanism. Schools had to meet a minimum enrollment threshold so that at
+least all types of classes can be conducted to each grade. Also, all
+other educational factors, such as curriculum settings, supplies and
+textbooks, remained the same. Once schools were selected, teachers and
+students were randomly assigned. Additionally, a control group of 22
+non-STAR schools was included to prevent Hawthorne Effect.
+
+## Variables dictionary
+
+This STAR dataset contains 379 variables and 11,601 observations
+involving students, teachers, and schools in this project for least one
+academic year. The 379 variables measure information of students,
+teachers and schools with students' standardized achievements and
+self-concept and motivation.
+
+## Select variables
+
+To address our primary question:
+
+*Are there any differences in math scaled scores in 1st grade across
+class types?*
+
+We focus on `g1tmathss` and `g1classtype` as our response variable and
+interested independent variable, in the subset of data. Since we treat
+each class as an observation, we use `g1tchid` to group students by
+class. Additionally, some possible independent variables such as
+`g1schid`,`gktmathss` and `g1freelunch` are also included in the subset
+of data, for further investigate.
+
+```{r include = FALSE}
+data <- subset(data_full, select = c(gktmathss,g1tchid,g1classtype,g1freelunch,g1tmathss,g1schid))
+data$g1classtype <- factor(data$g1classtype)
+data$g1freelunch <- factor(data$g1freelunch)
+data$g1schid <- factor(data$g1schid)
+```
+
+The dictionary below is based on variables that included in this report:
+
+```{r}
+#Dictionary
+variable <- c("g1tchid","g1schid","g2tchid","g2schid","g3tchid","g3schid","g1freelunch","g2freelunch","g3freelunch","g1classtype","g2classtype","g3classtype","gktmathss","g1tmathss","g2tmathss","g3tmathss")
+description <- c(
+  "indentifier for 1st grade teachers",
+  "indentifier for 1st grade schools",
+  "indentifier for 2nd grade teachers",
+  "indentifier for 2nd grade schools",
+  "indentifier for 3rd grade teachers",
+  "indentifier for 3rd grade schools",
+  "factor: student's qualification on free lunch in 1st grade",
+  "factor: student's qualification on free lunch in 2nd grade",
+  "factor: student's qualification on free lunch in 3rd grade",
+  "factor: the class type student belonged to in 1st grade",
+  "factor: the class type student belonged to in 2nd grade",
+  "factor: the class type student belonged to in 3rd grade",
+  "scaled math score in kindergarten",
+  "scaled math score in 1st grade",
+  "scaled math score in 2nd grade",
+  "scaled math score in 3rd grade"
+  )
+interpretation <- c("1st grade teacher's ID",
+                    "1st grade school's ID",
+                    "2nd grade teacher's ID",
+                    "2nd grade school's ID",
+                    "3rd grade teacher's ID",
+                    "3rd grade school's ID",
+                    "1 = eligible for free lunch; 2 = not eligible for free lunch in 1st grade",
+                    "1 = eligible for free lunch; 2 = not eligible for free lunch in 2nd grade",
+                    "1 = eligible for free lunch; 2 = not eligible for free lunch in 3rd grade",
+                    "1 = small class; 2 = regular class; 3 = regular+aide class in 1st grade",
+                    "1 = small class; 2 = regular class; 3 = regular+aide class in 2nd grade",
+                    "1 = small class; 2 = regular class; 3 = regular+aide class in 3rd grade",
+                    "total math scale score sat in kindergarten",
+                    "total math scale score sat in 1st grade",
+                    "total math scale score sat in 2nd grade",
+                    "total math scale score sat in 3rd grade"
+                    )
+
+data_dictionary <- data.frame(variable, description, interpretation)
+
+kable(data_dictionary, booktabs =TRUE) %>%row_spec(0, bold = TRUE, color = "black")
+```
+
+## Criticism
+
+Although directors of the STAR project have implemented a thoughtful
+sampling mechanism and measurement strategies, the non-mandatory nature
+of kindergarten in Tennessee led to damages the longitudinal analysis
+through K-3 grade.
+
+2,313 new students entered the experiment in their 1st grade, while
+4,516 kindergarten students stayed in the project since their
+kindergarten years. Additional inflows occurred in 2nd grade with 1,679
+new students and 3rd grade with 1,281 new students. These continuous
+inflows disrupted the effect of class size on students: the thoughtful
+sampling mechanism may not apply to them anymore since these new
+students were not part of the initial randomization process.
+
+As seen in the alluvial plot (Fig. 1.1), many students remained in the
+same class type across grades. Notably, the large number of missing
+values in `gkclasstype` suggests that many new students came to attend
+1st grade. This aligns with the fact that kindergarten was not mandatory
+in Tennessee, leading to a substantial number of students joining the
+study later. Additionally, the plot reflects the random reassignment of
+students between `regular` and `regular-aide` classes after
+kindergarten, as mentioned in the report. The reassignment between these
+two groups in 1st grade supports the conclusion in the report that their
+initial kindergarten results showed no significant differences,
+prompting reassignment.
+
+```{r warning = FALSE, message= FALSE,fig.width=8, fig.height=4}
+par(mfrow = c(1, 3))
+data_alluvium <- subset(data_full, select = c(gkclasstype,stdntid,g1classtype,g2classtype,g3classtype))
+
+data_alluvium <- data_alluvium[!is.na(data_alluvium$stdntid), ]
+
+data_alluvium$gkclasstype <- as.numeric(data_alluvium$gkclasstype)
+data_alluvium$gkclasstype <- factor(data_alluvium$gkclasstype,
+                                    levels = c(1, 2, 3),
+                                    labels = c("small", "regular", "regular-aide"))
+data_alluvium$gkclasstype <- fct_explicit_na(data_alluvium$gkclasstype, na_level = "Unknown")
+
+data_alluvium$g1classtype <- as.numeric(data_alluvium$g1classtype)
+data_alluvium$g1classtype <- factor(data_alluvium$g1classtype,
+                                    levels = c(1, 2, 3),
+                                    labels = c("small", "regular", "regular-aide"))
+data_alluvium$g1classtype <- fct_explicit_na(data_alluvium$g1classtype, na_level = "Unknown")
+
+data_alluvium$g3classtype <- as.numeric(data_alluvium$g3classtype)
+data_alluvium$g3classtype <- factor(data_alluvium$g3classtype,
+                                    levels = c(1, 2, 3),
+                                    labels = c("small", "regular", "regular-aide"))
+data_alluvium$g3classtype <- fct_explicit_na(data_alluvium$g3classtype, na_level = "Unknown")
+
+data_alluvium$g2classtype <- as.numeric(data_alluvium$g2classtype)
+data_alluvium$g2classtype <- factor(data_alluvium$g2classtype,
+                                    levels = c(1, 2, 3),
+                                    labels = c("small", "regular", "regular-aide"))
+data_alluvium$g1classtype <- fct_explicit_na(data_alluvium$g2classtype, na_level = "Unknown")
+
+
+data_summary <- as.data.frame(table(data_alluvium$gkclasstype, data_alluvium$g1classtype))
+colnames(data_summary) <- c("kindergarten", "grade 1", "Freq")
+alluvial(
+  data_summary[, 1:2],
+  freq = data_summary$Freq, 
+  col = "gold2",
+  border = "deepskyblue4",
+  alpha = 0.5,
+  cex = 0.6
+)
+
+data_summary <- as.data.frame(table(data_alluvium$g1classtype,data_alluvium$g2classtype))
+colnames(data_summary) <- c("grade 1", "grade 2", "Freq") 
+alluvial(
+  data_summary[, 1:2],
+  freq = data_summary$Freq, 
+  col = "gold2",
+  border = "deepskyblue4",
+  alpha = 0.5,
+  cex = 0.6
+)
+mtext("Figure 1.1: Alluvial plot", side = 1, line = 4, cex = 0.8)
+
+
+data_summary <- as.data.frame(table(data_alluvium$g2classtype,data_alluvium$g3classtype))
+colnames(data_summary) <- c("grade 2", "grade 3", "Freq") 
+alluvial(
+  data_summary[, 1:2],
+  freq = data_summary$Freq, 
+  col = "gold2",
+  border = "deepskyblue4",
+  alpha = 0.5,
+  cex = 0.6 
+)
+```
+
+# Descriptive analysis
+
+## Missing values
+
+```{r, fig.width=8, fig.height=4}
+missing_data <- colMeans(is.na(data)) * 100
+missing_df <- data.frame(
+  Column = names(missing_data),
+  MissingPercentage = missing_data
+)
+missing_df$Status <- "Before Cleaning"
+
+data_cleaned <- data[!is.na(data$g1tmathss), ]  
+data_cleaned <- data_cleaned[!is.na(data_cleaned$g1classtype), ]  
+data_cleaned <- data_cleaned[!is.na(data_cleaned$gktmathss), ]  
+#data_cleaned <- data_cleaned[!is.na(data_cleaned$g1freelunch), ] 
+data_cleaned <- data_cleaned[!is.na(data_cleaned$g1schid), ] 
+data_cleaned <- data_cleaned[!is.na(data_cleaned$g1tchid), ] 
+
+missing_data_cleaned <- colMeans(is.na(data_cleaned)) * 100
+missing_df_cleaned <- data.frame(
+  Column = names(missing_data_cleaned),
+  MissingPercentage = missing_data_cleaned
+)
+missing_df_cleaned$Status <- "After Cleaning"
+
+combined_df <- rbind(missing_df, missing_df_cleaned)
+
+ggplot(combined_df, aes(x = reorder(Column, -MissingPercentage), y = MissingPercentage, fill = Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = paste0(round(MissingPercentage, 1), "%")), 
+            position = position_dodge(width = 0.9), 
+            vjust = 0, size = 3, color = "black") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Figure 1.2: Comparison of Missing Data Before and After Cleaning",
+       x = "",
+       y = "Missing Data (%)") +
+  theme(
+    plot.title = element_text(size = 12),  
+    axis.text = element_text(size = 10),   
+    axis.title = element_text(size = 10),
+    legend.title = element_blank()
+  ) +
+  scale_fill_manual(values = c("Before Cleaning" = "gold2", "After Cleaning" = "deepskyblue3")) +
+  scale_y_continuous(limits = c(0, 60), breaks = seq(0, 60, by = 10))
+
+```
+
+Figure 1.2 shows the percentage of missing data in our subset. The
+missing data guide our data cleansing process:
+
+1.  A substantial portion of data from 1st grade is missing. For those
+    students who didn’t report their 1st grade math score `g1tmathss`
+    and class type `g1classtype`, we are no longer interested in their
+    performance. Students who did not report their 1st grade math score
+    `g1tmathss` or class type `g1classtype` were excluded from the
+    dataset.
+
+2.  After filtering out NAs in `g1tmathss` and `g1classtype`, we noticed
+    that `gktmathss` had 49.4% missing values. This is because, as
+    Boozer and Cacciola (2001) explain, “kindergarten was not mandatory
+    in Tennessee at the time of the experiment, a particularly large
+    influx of students is seen entering in first grade”(p. 9). To
+    maintain the consistency, we also removed NAs in `gktmathss`.
+
+3.  For the 2.1% missing values in `g1freelunch` and other variables
+    with missing rates below 1% , we would remove them from the data set
+    to ensure the competency of data of each students.
+
+```{r include=FALSE}
+data_cleaned <- data_cleaned[!is.na(data_cleaned$g1freelunch), ] 
+```
+
+```{r include = FALSE}
+data_cleaned$score_group <- cut(
+  data_cleaned$gktmathss, 
+  breaks = quantile(data_cleaned$gktmathss, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE), 
+  include.lowest = TRUE, 
+  labels = c("Q1", "Q2", "Q3", "Q4 (Highest)")
+)
+```
+
+In this report, we treat each class or teacher as an observation.
+Teachers are identified based on `g1tchid`. The descriptive analysis
+will be conducted within the grouped data.
+
+```{r warning = FALSE, message= FALSE}
+class_level_data <- data_cleaned %>%
+  group_by(g1tchid,g1freelunch,g1schid,score_group,g1classtype) %>%
+  summarise(
+    mean_math1 = mean(g1tmathss, na.rm = TRUE),
+    mean_mathk = mean(gktmathss, na.rm = TRUE) ) %>%
+  ungroup()
+```
+
+```{r include = FALSE}
+levels(class_level_data$g1classtype) <- c("small", "regular", "regular+aide")
+levels(class_level_data$g1freelunch) <- c("freelunch:qualified", "freelunch:un-qualified")
+```
+
+## Univariate descriptive
+
+### Students' 1st grade math performance `g1tmathss`
+
+The `g1tmathss` variable is a continuous numerical variable representing
+students' total scaled math scores in 1st grade. The tables (T1.1 and
+T1.2) below summarize the grouped data and overall data with six common
+statistics, measuring students' math performance:
+
+```{r warning=FALSE}
+math1_stats <- data %>%
+  group_by(g1tchid) %>%
+  summarise(
+    median = median(g1tmathss, na.rm = T),
+    mean = round(mean(g1tmathss, na.rm = T),1),
+    min = min(g1tmathss, na.rm = T),
+    max = max(g1tmathss, na.rm = T),
+    Q1 = round(quantile(g1tmathss, 0.25, na.rm = T),1),
+    Q3 = round(quantile(g1tmathss, 0.75, na.rm = T),1)
+  )
+head(math1_stats, 5) %>%
+  kable(caption = "Table 1.1: Summary of Math Scores by Teacher (First 5 Rows)") %>%
+  kable_styling() %>%
+  row_spec(0, bold = TRUE, color = "black")
+```
+
+```{r}
+math1_stats_sum <- data %>%
+  summarise(
+    median = median(g1tmathss, na.rm = T),
+    mean = round(mean(g1tmathss, na.rm = T),1),
+    min = min(g1tmathss, na.rm = T),
+    max = max(g1tmathss, na.rm = T),
+    Q1 = round(quantile(g1tmathss, 0.25, na.rm = T),1),
+    Q3 = round(quantile(g1tmathss, 0.75, na.rm = T),1)
+  )
+math1_stats_sum %>%
+  kable(caption = "Table 1.2: Overall summary of Math Scores") %>%
+  kable_styling() %>%
+  row_spec(0, bold = TRUE, color = "black")
+```
+
+We use the mean as the summary statistic to evaluate general student
+performance in a class. The mean gives us an idea of the overall level
+of achievement for the class, offering a complete picture of its general
+performance.
+
+The bell-shaped histogram (Fig 1.3) of 1st grade math scores by class
+suggests a normal distribution, indicating that most classes have
+average math scores close to the overall mean.
+
+```{r}
+hist(math1_stats$mean, 
+     breaks = 30,
+     col = "deepskyblue4", 
+     border = "gold2", 
+     main = "Figure 1.3: Histogram of 1st grade Math mean score(by class)",
+     cex.main = 1,
+     xlab = "1st grade Math score", 
+     ylab = "Frequency",
+     cex.lab = 1,
+     cex.axis = 0.8)   
+```
+
+### Class type `g1classtype`
+
+`g1classtype` is a categorical variable representing the type of class
+students were assigned to in their 1st grade. It has three levels:
+`small`, `regular`, and `regular + aide`. Based on our primary question,
+we also summarize the frequency of each class type in our data. The pie
+chart(Fig. 1.4) shows that we have more information for the `small`
+class type and less for the `regular+aide` class type. However, the
+distribution is sufficiently balanced, allowing us to move forward with
+the analysis.
+
+```{r}
+table_class <- table(class_level_data$g1classtype)
+percent_labels_class <- paste(names(table_class), 
+                        "(", round(prop.table(table_class) * 100, 1), "%)", sep = "")
+pie(table_class, 
+    main = "Figure 1.4: Class type Category Distribution", 
+    col = c("deepskyblue4", "gold1","deepskyblue3"),
+    labels = percent_labels_class)
+```
+
+### Schools `g1schid`
+
+`g1schid` is a categorical variable indicating which school the student
+was enrolled in in their 1st grade. Different schools often have varying
+levels of resources, which can affect the educational opportunities
+available to students. Moreover, the geographical location of a school
+is closely related to the socioeconomic and demographic background of
+students, a factor not considered in the design of the STAR project.
+
+Table T1.3 (showing schools 1-10; see Appendix) presents the
+distribution of classes across schools, which is uneven. For example,
+there are 49 classes from school 201449 but only 8 classes from school
+244764 after data cleansing.
+
+### Qualification for free lunch `g1freelunch`
+
+`g1freelunch` is a categorical variable indicating which lunch plan the
+student was qualified for in their 1st grade. In the STAR project,
+students were eligible for free lunch if their family income was at or
+under the federal poverty line. Although the STAR project acknowledged
+the potential influence of students' socioeconomic status on their
+performance, it was not possible to control for this factor due to the
+study's design. This indicates that `g1freelunch` may be one of the
+sources of variation.
+
+Figure 1.5(see Appendix) draws an even distribution of lunch type.
+Notably, the pie chart here is based on student-level data, not
+aggregated on the class-level.
+
+### Kindergarten Math score `gktmathss`
+
+`gktmathss` is a continuous numerical variable measuring students' total
+scaled math scores in kindergarten. Table 1.4 and Figure 1.6(see
+Appendix) both present the mean math scores for students in
+kindergartens, by 1st grade their classes. According to Jordan et al.
+(2009), students' math performance before elementary school has a
+positive and significant influence on their math performance from 1st to
+3rd grade. It is highly possible that including `gktmathss` in the model
+is reasonable.
+
+## Multivariate descriptive
+
+### Class Type, Lunch type and Schools
+
+```{r, fig.width=10, fig.height=4, warning=FALSE}
+p1<- ggplot(class_level_data, aes(x = g1classtype, y = mean_math1, fill = g1classtype)) +
+  geom_boxplot(aes(group = g1classtype)) +
+  labs(
+    title = "Figure 2.1: Boxplot of Mean math1 by Class Type",
+    x = "Class Type",
+    y = "Mean math1"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12),  
+    axis.text = element_text(size = 10),   
+    axis.title = element_text(size = 10),
+    axis.text.x = element_blank()
+  )+
+  scale_fill_manual(values = c("deepskyblue4","deepskyblue3","deepskyblue2"))
+
+p2<- ggplot(class_level_data, aes(x = g1freelunch, y = mean_math1, fill = g1freelunch)) +
+  geom_boxplot(aes(group = g1freelunch)) + 
+  labs(
+    title = "Figure 2.2: Boxplot of Mean math1 by Lunch Type",
+    x = "Lunch Type",
+    y = "Mean math1"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12),  
+    axis.text = element_text(size = 10),   
+    axis.title = element_text(size = 10),
+    axis.text.x = element_blank()
+  )+
+  scale_fill_manual(values = c("gold1","gold3"))
+p1+p2
+```
+
+The boxplot(Fig 2.1) shows that the median lines and whiskers
+for each class type are aligned, indicating that the differences in
+`g1tmathss` across class types is not significant. However, the boxplot
+provides a visualization of outcome v.s. class types, it doesn't take
+potential control variables into account. To reach a reliable answer, a
+robust statistical model should be built with control variables.
+
+The boxplot(Fig 2.2) reveals a pattern between math scores and lunch
+types. Regardless of class type, students who were not eligible for free
+lunch showed a better math performance in 1st grade.
+
+```{r, fig.width=10, fig.height=6,warning = FALSE}
+ggplot(class_level_data, aes(x = g1schid, y = mean_math1, fill = g1schid)) +
+  geom_boxplot() +
+  labs(
+    title = "Figure 2.3: Boxplot of Mean math1 by Schools",
+    x = "Schools",
+    y = "Mean math1"
+  ) +
+  theme_minimal()+
+  scale_fill_manual(values = viridis(76, option = "mako")) +
+theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.5,size=6.5),
+    legend.position = "none",
+  ) 
+```
+
+The boxplot (Fig 2.3) of mean scores(by class) and schools appears
+fairly random. Does this imply that school-level differences may not
+strongly influence class-level mean scores? The answer is no. One reason
+of the random pattern in Figure 2.3 is the handful amount of schools
+involved in this project. After data cleaning, we have 76 schools, with
+the maximum number of classes involved in one school being only 19. This
+limited number of classes from one school may obscure any patterns in
+the plot. Besides, from the different size of the boxes, we can tell
+that the variation between different schools unignorable.
+
+### Math-k as categorical data
+
+We will categorize students' kindergarten math scores `gktmathss` into
+four quartiles (Q1-Q4, Q4 is the highest group) and include these score
+groups as categorical variable in our model. This is because the experimental design tends to retain kindergarten class assignments for students who were already in the project (Boozer & Cacciola, 2001), and our focus is on the impact of first-grade class size on math performance. Also, treating kindergarten math scores as a continuous variable would assume a linear relationship with first-grade math scores, which may not hold. Moreover, categorization allows us to capture potential nonlinear effects and control for kindergarten class assignment influences more effectively.
+
+
+The boxplot (Fig 2.4) shows a clear trend that early math performance
+plays an important role in first-grade math achievement. Given this,
+including `gktmathss: score_group` as a factor in our model would likely
+improve its explanatory power and help us to filter out the impact of
+early math ability on later performance.
+
+```{r warning = FALSE}
+ggplot(class_level_data, aes(x = score_group, y = mean_math1, fill = score_group)) +
+  geom_boxplot(aes(group = score_group)) +
+  labs(
+    title = "Figure 2.4: Boxplot of Mean math1 by K-grade math score group",
+    x = "K-grade math score group",
+    y = "Mean math1"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("deepskyblue4","deepskyblue3","deepskyblue2","deepskyblue"))
+```
+
+## Discussion on interaction terms
+
+By plotting the interaction plots between variables, we will exclude any
+interaction terms, for example `g1classtype*g1freelunch`, from the
+model:
+
+1.  No pattern showed in the interaction plots: The interaction
+    plots(Fig 2.5, Fig 2.6 and Fig 2.7 in the Appendix) show the lines
+    remain largely parallel across levels in each figure, indicating
+    that the effect of one variable on `g1tmathss` does not affect by
+    another variable. Hence, including these interaction terms in the
+    model would not provide additional explanatory power.
+
+2.  Model Complexity and loss of degrees of freedom: Due to the large
+    amount of schools participated in this project, adding interaction
+    terms on `g1schid` would significantly increase the complexity of
+    the model and would drop at least 75 degrees of freedom of the
+    residual term, increasing the risk of Type II error.
+
+```{r, fig.width=9, fig.height=6,warning = FALSE, message= FALSE}
+par(mfrow=c(1,2))
+interaction.plot(class_level_data$g1classtype, class_level_data$g1freelunch, class_level_data$mean_math1, 
+                 col = c("gold4", "deepskyblue4"),
+                 lty = 5:6,
+                 pch = 17:19,
+                 cex.lab = 1, 
+                 ylab = "Mean Math1", 
+                 xlab = "Class Type",
+                 main = "Figure 2.5: g1classtype vs. g1freelunch",
+                 cex.main = 1,
+                legend = FALSE)
+legend("topright", inset = c(0, 0), title = "Free Lunch", 
+       legend = c("Unqualified", "Qualified"),
+       col = c("deepskyblue4", "gold4"), lty = 6:5,  cex = 0.8, xpd = TRUE)
+
+interaction.plot(class_level_data$g1classtype, class_level_data$score_group, class_level_data$mean_math1, 
+                 col = c("black","gold4", "deepskyblue4","darkgreen"),
+                 lty = 5:6:1:3,
+                 pch = 17:19,
+                 cex.lab = 1, 
+                 ylab = "Mean Math1", 
+                 xlab = "Class Type",
+                 main = "Figure 2.6: math-k:score group vs. g1classtype",
+                cex.main = 0.95,
+                legend = FALSE)
+legend("topright", inset = c(0, 0.15), title = "Score group", 
+       legend = c("Q1", "Q2","Q3","Q4"),
+       col = c("black","gold4", "deepskyblue4","darkgreen"), lty = 5:6:1:3, cex = 0.8, xpd = TRUE)
+```
+
+# Inferential analysis
+
+## ANOVA model
+
+The model is defined with an ANOVA model as follows
+
+```{r}
+model2 <- lm(mean_math1 ~ g1classtype +g1schid+score_group+ g1freelunch ,data=class_level_data)
+```
+
+$$Y_{ijklm} = \mu_{....} + \alpha_{i} + \beta_{j} +\gamma_{k}+\delta_{l}+ \epsilon_{ijklm}$$
+
+where:
+
+-   $Y_{ijklm}$ represents the mean math score of 1st grade students of
+    $i$ th class type, $j$th school, $k$th score group and $l$th free
+    lunch status for the $m$ th teacher.
+
+-   $\mu_{....}$ represents the overall mean of 1st grade math scores
+    for all students.
+
+-   $\alpha_{i}$ represents the **main effect** of the $i$ th class
+    type. The index $i$ represents the class type: small ($i=1$),
+    regular ($i=2$), regular with aide ($i=3$)
+
+    -   Constraint: $\sum_i \alpha_{i} = 0$
+
+-   $\beta_{j}$ represents the **main effect** of the $j$ th school. The
+    index $j$ $(j = 1,...,76)$ represents the school indicator.
+
+    -   Constraint: $\sum_j \beta_{j} = 0$
+
+-   $\gamma_{k}$ represents the **main effect** of the $k$ th score
+    group of students kindergarten scaled math scores. The index $k$
+    represents the score group: first quartile (Q1, 25th percentile)
+    ($k=1$), second quartile (Q2, Median, 50th percentile) ($k=2$),
+    third quartile (Q3, 75th percentile) ($k=3$) and fourth quartile
+    (Q4, Max range, 100th percentile) ($k=4$).
+
+    -   Constraint: $\sum_k \gamma_{k} = 0$
+
+-   $\delta_{l}$ represents the **main effect** of the $l$ th free lunch
+    status: qualified ($l=1$) and unqualified ($l=2$).
+
+    -   Constraint: $\sum_l \delta_{l} = 0$
+
+-   $\epsilon_{ijklm}$ represents the random error with $i$ th class
+    type, $j$th school, $k$th score group and $l$th free lunch status
+    for the $m$ th teacher.
+
+with assumptions:
+
+1.  Normality: The residuals are approximately normally distributed.
+
+2.  Homogeneity Variance: The variance of the residuals is roughly the
+    same for all different levels of `g1classtype`, `g1freelunch`,
+    `g1schid` and `score_group`.
+
+3.  Independence: The observations within each group are independent of
+    each other. Namely, we are assuming that there is no peer effects
+    within schools or classes between different groups of students.
+
+```{r}
+subset <- tidy(model2) %>%
+  filter(term %in% c("(Intercept)", "g1classtyperegular", "g1classtyperegular+aide", 
+                     "score_groupQ2", "score_groupQ3", "score_groupQ4 (Highest)", 
+                     "g1freelunchfreelunch:un-qualified","g1schid170295", "g1schid244780")) %>%
+  dplyr::select(term, estimate) %>%
+  mutate(term = case_when(
+    term == "(Intercept)" ~ "Intercept",
+    term == "g1classtyperegular" ~ "Regular",
+    term == "g1classtyperegular+aide" ~ "Regular + Aide",
+    term == "score_groupQ2" ~ "Score Group Q2",
+    term == "score_groupQ3" ~ "Score Group Q3",
+    term == "score_groupQ4 (Highest)" ~ "Score Group Q4",
+    term == "g1freelunchfreelunch:un-qualified" ~ "Free Lunch: Unqualified",
+    term == "g1schid170295" ~ "School 170295",
+    term == "g1schid244780" ~ "School 244780",
+    TRUE ~ term
+  ),
+  estimate = round(estimate, 2))
+
+subset <- rbind(subset, c("...", "..."))
+n_rows <- nrow(subset)
+table1 <- subset %>%
+  kable(caption = "Estimates") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(0, bold = TRUE, color = "black") %>%
+  row_spec(n_rows, bold = TRUE, color = "black") %>%
+  row_spec(n_rows, hline_after = TRUE)
+table1
+```
+
+-   **Intercept = 479.80**: This is the baseline for the response
+    variable `mean_math1`. It represents the mean math score for a group
+    of students in a `small` class, from `school 112038` having mean
+    kindergarten math score falls in `Q1` and `qualified` for free
+    lunch.
+
+-   **Class type coefficients:**
+
+    -   **Regular = -8.28**: This coefficient represents the difference
+        in mean math score between a `regular` class and a `small`
+        class. If `g1classtyperegular` equals to 1 (i.e., the class is a
+        `regular` class) the math score of that class is expected to be
+        **8.28** points lower than the mean score of a `small` class.
+
+    -   **Regular+aide = -5.81**: This coefficient represents the
+        difference in mean math score between a `regular+aide` class and
+        a `small` class. If `g1classtyperegular+aide` equals to 1 the
+        math score of that class is expected to be **5.81** points lower
+        than the mean score of a `small` class.
+
+-   **Score group coefficients:**
+
+    -   **Score Group Q2 = 23.50**: This coefficient represents the
+        difference in mean math score between a `Q2` group and a `Q1`
+        group. If `score_groupQ2` equals to 1 the math score of that
+        group is expected to be **23.50** points higher than the mean
+        score of a `Q1` group.
+
+    -   For `Q3` and `Q4`, the explanations are very similar to `Q2`'s.
+        In a short sentence, the better students were in their
+        kindergarten math, the higher scores they got in grade-1.
+
+-   **Free Lunch coefficients:**
+
+    -   **Free Lunch: Unqualified = 12.13**: This coefficient represents
+        the difference in mean math score between students who were
+        qualified for free lunch and students who were not. If
+        `g1freelunchfreelunch:un-qualified` equals to 1 the math score
+        of that group is expected to be **12.13** points higher than the
+        mean score of the `qualified` group.
+
+-   **Schools coefficients:**
+
+    Given the considerable amount of schools involved in the STAR
+    project, we extract a subset from coefficients in `g1schid` group:
+
+    -   **school 170295** **= 62.00**: This coefficient represents the
+        difference in mean math score between a class in `school 170295`
+        and a class in `school 112038`. If `g1schid170295` equals to
+        1(i.e., the class is from `school 170295`), the math score of
+        that class is expected to be **62.00** points higher than the
+        mean score of classes in `school 112038`.
+
+    -   **school 244780** **= -43.27**: This coefficient represents the
+        difference in mean math score between a class in `school 244780`
+        and a class in `school 112038`. If `g1schid244780` equals to 1,
+        the math score of that class is expected to be **43.27** points
+        lower than the mean score of classes in `school 112038`.
+
+## F-test
+
+A F-test is conducted here to verify the differences in 1st grade math
+scores across different class types `g1classtype`. We set the
+significance level as 0.05.
+
+```{r include=FALSE}
+ft = Anova(model2, type=2)
+ft
+```
+
+By the F-test result on `g1classtype`, the extremely small p-value leads
+us reject the null hypothesis that $\alpha_i$ is 0 and conclude that
+class type significantly affects the 1st grade mean math score with 95%
+confidence. This answers our primary question that there are significant
+differences in 1st grade mean math score across class types.
+
+## Tukey's range test
+
+```{r}
+lm1tukey <- aov(mean_math1 ~ g1classtype +score_group+ g1freelunch+g1schid, data = class_level_data)
+tukey <-TukeyHSD(lm1tukey,"g1classtype")
+tukey_data <- as.data.frame(tukey$g1classtype)
+tukey_data$g1classtype <- rownames(tukey_data)
+ggplot(tukey_data, aes(x = g1classtype, y = diff)) +
+  geom_pointrange(aes(ymin = lwr, ymax = upr), lwd =1.5, size = 0.7, col = "deepskyblue2")+
+   geom_hline(yintercept=0, linetype='dashed', col = 'gold', lwd =1) +
+  labs(x = "Class type",
+       y = "Difference in 1st grade mean math score",
+       title = "Figure 3.1: Tukey's Range for different class types (95% FWCI)") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "off") +
+  theme(plot.title = element_text(size=13))
+```
+
+```{r}
+tukey_data <- as.data.frame(tukey$g1classtype)
+tukey_data$Comparison <- rownames(tukey_data)
+str(tukey_data)
+```
+
+Our secondary question is to find out which type of class is associated
+with the highest math score. To answer this, we fit a new model with
+only `g1classtype` as dependent variable. A Tukey Range test is then
+conducted, with a significance level equals to 0.05.
+
+### Conclusion
+
+1.  None of the three intervals includes 0, meaning that the difference
+    between three class types are significant.
+
+2.  Specifically, `small` classes perform better in math compared to
+    `regular` and `regular+aide` classes, with a mean difference greater
+    than 5. The effect of assigning aide tutors to classes shows a
+    positive impact, as the mean math score of `regular+aide` classes is
+    higher than that of `regular` classes, with a mean difference of
+    approximately 5.46.
+
+## Further conclusions
+
+```{r warning=FALSE,message=FALSE,fig.width=10, fig.height=4}
+data_2 <- subset(data_full, select = c(g1tmathss,g2tchid,g2classtype,g2freelunch,g2tmathss,g2schid))
+data_2$g2classtype <- factor(data_2$g2classtype)
+data_2$g2freelunch <- factor(data_2$g2freelunch)
+data_2$g2schid <- factor(data_2$g2schid)
+data_2 <- data_2[!is.na(data_2$g1tmathss), ]  
+data_2 <- data_2[!is.na(data_2$g2classtype), ]  
+data_2 <- data_2[!is.na(data_2$g2tmathss), ]  
+#data <- data[!is.na(data$g1freelunch), ] 
+data_2 <- data_2[!is.na(data_2$g2schid), ] 
+data_2 <- data_2[!is.na(data_2$g2tchid), ] 
+data_2$score_group_2 <- cut(
+  data_2$g1tmathss, 
+  breaks = quantile(data_2$g1tmathss, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE), 
+  include.lowest = TRUE, 
+  labels = c("Q1", "Q2", "Q3", "Q4 (Highest)")
+)
+class_level_data_2 <- data_2 %>%
+  group_by(g2tchid,g2freelunch,g2schid,score_group_2,g2classtype) %>%
+  summarise(
+    mean_math2 = mean(g2tmathss, na.rm = TRUE) ) %>%
+  ungroup()
+levels(class_level_data_2$g2classtype) <- c("small", "regular", "regular+aide")
+levels(class_level_data_2$g2freelunch) <- c("freelunch:qualified", "freelunch:un-qualified")
+model3 <- lm(mean_math2 ~ g2classtype +g2schid+score_group_2+ g2freelunch,data=class_level_data_2)
+lm2tukey <- aov(mean_math2 ~ g2classtype +score_group_2+ g2freelunch+g2schid, data = class_level_data_2)
+tukey <-TukeyHSD(lm2tukey,"g2classtype")
+tukey_data <- as.data.frame(tukey$g2classtype)
+tukey_data$g2classtype <- rownames(tukey_data)
+pic1 <- ggplot(tukey_data, aes(x = g2classtype, y = diff)) +
+  geom_pointrange(aes(ymin = lwr, ymax = upr), lwd =1.5, size = 0.7, col = "deepskyblue2")+
+   geom_hline(yintercept=0, linetype='dashed', col = 'gold', lwd =1) +
+  labs(x = "Class type",
+       y = "Difference in 2nd grade mean math score",
+       title = "Figure 3.2") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "off") +
+  theme(plot.title = element_text(size=13))
+
+data_3 <- subset(data_full, select = c(g3tmathss,g3tchid,g3classtype,g3freelunch,g2tmathss,g3schid))
+data_3$g3classtype <- factor(data_3$g3classtype)
+data_3$g3freelunch <- factor(data_3$g3freelunch)
+data_3$g3schid <- factor(data_3$g3schid)
+data_3 <- data_3[!is.na(data_3$g2tmathss), ]  
+data_3 <- data_3[!is.na(data_3$g3classtype), ]  
+data_3 <- data_3[!is.na(data_3$g3tmathss), ]  
+#data <- data[!is.na(data$g1freelunch), ] 
+data_3 <- data_3[!is.na(data_3$g3schid), ] 
+data_3 <- data_3[!is.na(data_3$g3tchid), ] 
+data_3$score_group_3 <- cut(
+  data_3$g2tmathss, 
+  breaks = quantile(data_3$g2tmathss, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE), 
+  include.lowest = TRUE, 
+  labels = c("Q1", "Q2", "Q3", "Q4 (Highest)")
+)
+class_level_data_3 <- data_3 %>%
+  group_by(g3tchid,g3freelunch,g3schid,score_group_3,g3classtype) %>%
+  summarise(
+    mean_math3 = mean(g3tmathss, na.rm = TRUE) ) %>%
+  ungroup()
+levels(class_level_data_3$g3classtype) <- c("small", "regular", "regular+aide")
+levels(class_level_data_3$g3freelunch) <- c("freelunch:qualified", "freelunch:un-qualified")
+model4 <- lm(mean_math3 ~ g3classtype +g3schid+score_group_3+ g3freelunch,data=class_level_data_3)
+lm3tukey <- aov(mean_math3 ~ g3classtype +score_group_3+ g3freelunch+g3schid, data = class_level_data_3)
+tukey <-TukeyHSD(lm3tukey,"g3classtype")
+tukey_data <- as.data.frame(tukey$g3classtype)
+tukey_data$g3classtype <- rownames(tukey_data)
+pic2 <- ggplot(tukey_data, aes(x = g3classtype, y = diff)) +
+  geom_pointrange(aes(ymin = lwr, ymax = upr), lwd =1.5, size = 0.7, col = "deepskyblue2")+
+   geom_hline(yintercept=0, linetype='dashed', col = 'gold', lwd =1) +
+  labs(x = "Class type",
+       y = "Difference in 3rd grade mean math score",
+       title = "Figure 3.3") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "off") +
+  theme(plot.title = element_text(size=13))
+
+pic1+pic2
+```
+
+Under same data processing procedures and same model fitting method, we
+further draw Tukey's range tests for 2nd and 3rd grades students. The
+figures(3.1-3.3) present the diminishing effect of small-class sizes on
+first-grade math scores, aligning with the findings in the Final Report
+(Word et al., 1990). In Figure 3.2, students in regular size classes,
+with or without a full-time aide, show lower mean math scores compared
+to students in `small` classes. However, in Figure 3.3, the confidence
+interval of `regular` and `regular+aide` overlaps more with zero and the
+other two confidence intervals approach to zero, which suggest a reduced
+impact in later grades compared to fig 3.1 and fig 3.2. This supports
+the report’s conclusion that the benefits of small classes are most
+significant in early educations and decline in later grades.
+
+## Comments
+
+The main deviation between this final report and the initial report is
+that we have more main effects included, switching the model to a
+four-way ANOVA model. Compared to the model in initial report, this
+model in the final report explain much more of the variation, as can be
+seen from the F-statistics(Two-way ANOVA model in the initial report:
+5.848 on 77 and 269 DF; Four-way ANOVA model in this report: 26.91 on 81
+and 1613 DF).
+
+However, despite the model’s improved explanatory power, the
+experimental design of the STAR project introduces several issues that
+violate causal inference. A primary concern is the influx of new
+students entering this study after the initial randomization, which
+violates the fundamental assumption of random assignment. Furthermore,
+the reassignment of students between `regular` and `regular-aide`
+classes after kindergarten brings additional challenges for the
+experimental control and the assumption that treatment conditions are
+fixed.
+
+# Sensitivity analysis
+
+In the sensitivity analysis, we investigate whether those assumptions we
+made for the ANOVA model, F-test and Tukey's Range test are plausible.
+
+## Normality Assumption and Homogeneity Variance Assumption
+
+```{r warning=FALSE}
+par(mfrow=c(1,2))
+plot(model2, which = 2, col="deepskyblue2", pch=20, cex=1, cex.main=0.9, cex.axis=0.8, cex.lab=0.8, main="Figure 4.1")
+plot(model2, which = 1, col="deepskyblue2", pch=20, cex=1, cex.main=0.9, cex.axis=0.8, cex.lab=0.8,main="Figure 4.2")
+```
+
+Hypothesis on Levene's Test is:
+
+$$H_{0}: \sigma_{11}=\sigma_{12}=\dots=\sigma_{ij}\\ H_{1}: {\rm At \ least\ one\ pair\ of\ } \sigma_{ij} ≠ \sigma_{i^*j^*} $$
+
+```{r}
+leveneTest(mean_math1 ~ g1classtype*g1schid*score_group*g1freelunch, data = class_level_data)
+```
+
+-   In Figure 4.1, the Q-Q plot shows heavy tails, indicating data
+    moderate deviation from normal distribution. Some transformations
+    are needed before model fitting.
+
+-   In Figure 4.2, the residuals plot shows no clear pattern on the
+    spread of residuals, which indicates homoscedasticity across
+    different levels.
+
+-   However, the Levene's test with a `p-value` smaller than the
+    significant level 0.05 leading us to reject the null hypothesis and
+    fail to conclude the homogeneity. This can be explained by:
+
+    -   Including `g1schid` causes the size of each group to shrink.
+
+    -   While `g1classtype` groups have similar variances overall(see
+        initial report - sensitivity analysis - On Tukey's Range test),
+        when broken down by `g1schid`, `score_group` and `g1freelunch`,
+        some subgroups may have extreme variances.
+
+# Discussion
+
+This study examined how 1st grade classroom types affect students' 1st
+grade math performance using the STAR dataset. Our analysis found that
+`small` classes significantly improved students' math scores compared to
+`regular` and `regular-aide` classes, with the benefits being strongest
+in 1st grade but diminishing in later grades (2nd–3rd). The Tukey’s
+range tests confirmed that `small` class students outperformed their
+peers, with the observed diminishing effects.
+
+However, it is important to note that having part-time aide in `regular`
+classes and the non-mandatory kindergarten in Tennessee which results
+in large flow of new students, affected the randomization design. And
+the model in this report fails to follow the homogeneity variance
+assumption. Both of them violates the model validation and the
+conclusion. To improve these limitations, alternative methods, such as
+building **H**ierarchical **L**inear **M**odel which can stabilize the
+variations among students, classes and schools, can be applied in
+further analysis.
+
+Given these findings, policymakers should have considered limiting class
+sizes in early education to small classes (13-17 students), as the most
+significant improvement was seen in the first year of school. Despite
+the findings from the STAR dataset, during the 2024-25 school year, the
+legislated class size in California, "no more than 20 pupils" according
+to CA Educ Code § 52055.740 (2024), may not fully capture the benefits
+of smaller sizes. However, as mentioned previously, the investments in
+education are already substantial, and increasing the number of teachers
+would significantly raise educational costs. Additionally, after 30
+years, teaching methods have evolved with the development of technology.
+For example, the wide use of students' Chromebooks in elementary schools
+calls for rethinking the impact of class size, as data was collected
+without these changes in education.
+
+# Acknowledgement {.unnumbered}
+
+ChatGPT was used in this report for language checking:
+<https://chatgpt.com/share/67ad0788-7810-8012-93dd-a25687fedac7>
+<https://chatgpt.com/share/67c8878a-80e8-8012-b410-163b2142a426>
+
+I sincerely thank my friend Isaac Dae Hyeun Cheong for his kind,
+insightful, and practical advice on this initial report. I also
+appreciate my friends Allen Hangyu Li and Junwon Choi for their valuable
+discussions.
+
+# Reference {.unnumbered}
+
+1.  NYP. (2025). *NY teachers unions pump school spending to highest in
+    the nation at \$36K per kid - yet they rank low in reading and math:
+    report*. New York Post. Retrieved from
+    <https://nypost.com/2025/01/17/us-news/new-york-state-is-biggest-spender-on-schools-with-mediocre-results>
+2.  Jordan, N. C., Kaplan, D., Ramineni, C., & Locuniak, M. N. (2009).
+    Early math matters: kindergarten number competence and later
+    mathematics outcomes. *Developmental psyhology*, *45*(3), 850–867.
+    <https://doi.org/10.1037/a0014939>
+3.  Boozer, M. A., & Cacciola, S. (2001). Inside the “Black Box” of
+    Project Star: Estimation of Peer Effects Using Experimental Data.
+    *Social Science Research Network*.
+    <https://doi.org/10.22004/ag.econ.28524>
+4.  Krueger, A. B. (1999). Experimental Estimates of Education
+    Production Functions. *The Quarterly Journal of Economics*,
+    *114*(2), 497–532. <https://doi.org/10.1162/003355399556052>
+5.  Word, E., Johnston, J., Bain, H. P., Fulton, B. D., Zaharias, J. B.,
+    Achilles, C. M., Lintz, M. N., Folger, J., & Breda, C. (1990). *The
+    State of Tennessee’s Student/Teacher Achievement Ratio (STAR)
+    Project: Final summary report, 1985–1990.* Tennessee State
+    Department of Education.
+6.  FindLaw Staff. (2023). California Education Code Section 52055.740.
+    Retrieved March 4, 2025, from
+    <https://codes.findlaw.com/ca/education-code/edc-sect-52055-740/>
+
+# Appendix
+
+```{r warning = FALSE, message= FALSE}
+table_g1schid <- table(class_level_data$g1schid)
+names(table_g1schid) <- paste("school", names(table_g1schid))
+head(table_g1schid,10) %>%
+  kable(caption = "Table 1.3: Frequency of Math Scores by School") %>%
+  kable_styling() %>%
+  row_spec(0, bold = TRUE, color = "black")
+```
+
+```{r}
+table_lunch1 <- table(class_level_data$g1freelunch)
+percent_labels_lunch1 <- paste(names(table_lunch1), 
+                        "(", round(prop.table(table_lunch1) * 100, 1), "%)", sep = "")
+pie(table_lunch1, 
+    main = "Figure 1.5: Lunch1's Category Distribution", 
+    col = c("deepskyblue3", "gold1"),
+    labels = percent_labels_lunch1)
+```
+
+```{r warning = FALSE, message= FALSE}
+mathk_stats <- data %>%
+  group_by(g1tchid) %>%
+  summarise(
+    median = median(gktmathss, na.rm = T),
+    mean = round(mean(gktmathss, na.rm = T),1),
+    min = min(gktmathss, na.rm = T),
+    max = max(gktmathss, na.rm = T),
+    Q1 = round(quantile(gktmathss, 0.25, na.rm = T),1),
+    Q3 = round(quantile(gktmathss, 0.75, na.rm = T),1)
+  )
+head(mathk_stats, 5) %>%
+  kable(caption = "Table 1.4: Summary of of k-Math mean score(by class in 1st grade)") %>%
+  kable_styling() %>%
+  row_spec(0, bold = TRUE, color = "black")
+```
+
+```{r}
+hist(mathk_stats$mean, 
+     breaks = 30,
+     col = "gold2", 
+     border = "deepskyblue4", 
+     main = "Figure 1.6: Histogram of k-Math mean score(by class in 1st grade)",
+     cex.main = 1,
+     xlab = "Kindergadern Math score", 
+     ylab = "Frequency")
+```
+
+```{r}
+interaction.plot(class_level_data$score_group, class_level_data$g1freelunch, class_level_data$mean_math1, 
+                 col = c("gold4", "deepskyblue4"),
+                 lty = 5:6,
+                 pch = 17:19,
+                 cex.lab = 1, 
+                 ylab = "Mean Math1", 
+                 xlab = "Score Group",
+                 main = "Figure 2.7: math-k:score_group vs. g1freelunch",
+                  cex.main = 0.95)
+```
+
+# Session info {.unnumbered}
+
+```{r}
+sessionInfo()
+```
