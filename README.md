@@ -1,1 +1,1 @@
-"# STA207" 
+"# STA207 individual course project" 
